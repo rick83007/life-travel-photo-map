@@ -1,0 +1,2502 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>旅跡相簿</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQHllySQn2W72J9I51LHYhPW7KA9UCE="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #f7f7f2;
+      --panel: #ffffff;
+      --ink: #16211f;
+      --muted: #67736f;
+      --line: #dfe5df;
+      --line-strong: #c6d1c9;
+      --green: #0f6b54;
+      --green-deep: #0c493c;
+      --blue: #336b87;
+      --coral: #d95d39;
+      --gold: #dfb63b;
+      --shadow: 0 16px 45px rgba(18, 33, 31, 0.15);
+      --radius: 8px;
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: minmax(330px, 410px) minmax(0, 1fr);
+      width: 100vw;
+      height: 100dvh;
+      min-height: 620px;
+    }
+
+    .side-panel {
+      position: relative;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 8px 0 35px rgba(20, 31, 29, 0.08);
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-mark {
+      position: relative;
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(15, 107, 84, 0.94), rgba(51, 107, 135, 0.92)),
+        #0f6b54;
+      box-shadow: 0 10px 24px rgba(15, 107, 84, 0.25);
+    }
+
+    .brand-mark::before {
+      position: absolute;
+      top: 11px;
+      left: 14px;
+      width: 16px;
+      height: 16px;
+      border: 3px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      content: "";
+      transform: rotate(-45deg);
+    }
+
+    .brand-mark::after {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 11px;
+      height: 11px;
+      border: 2px solid #fff;
+      border-radius: 3px;
+      content: "";
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .panel-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px 14px 18px;
+    }
+
+    .upload-zone {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      min-height: 148px;
+      padding: 16px;
+      border: 1.5px dashed var(--line-strong);
+      border-radius: var(--radius);
+      background: #f8fbf8;
+      text-align: center;
+      transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+    }
+
+    .upload-zone.is-dragging {
+      border-color: var(--green);
+      background: #eef8f3;
+      transform: translateY(-1px);
+    }
+
+    .upload-icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto;
+      border-radius: 8px;
+      background: #e7f1ed;
+      color: var(--green-deep);
+    }
+
+    .upload-zone strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .upload-zone span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .action-row,
+    .toolbar-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-row {
+      margin-top: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1;
+      white-space: nowrap;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--line-strong);
+      box-shadow: 0 8px 18px rgba(22, 33, 31, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 10px 20px rgba(15, 107, 84, 0.22);
+    }
+
+    .btn.icon-only {
+      width: 36px;
+      min-width: 36px;
+      padding: 0;
+    }
+
+    .btn.danger {
+      border-color: rgba(217, 93, 57, 0.35);
+      color: #a33c24;
+    }
+
+    .icon {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2.2;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .control-block {
+      display: grid;
+      gap: 9px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field label,
+    .inline-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfb;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .field textarea {
+      min-height: 74px;
+      resize: vertical;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(15, 107, 84, 0.13);
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      accent-color: var(--green);
+    }
+
+    .switch {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      min-height: 38px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+    }
+
+    .photo-list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 16px 2px 8px;
+    }
+
+    .photo-list-head h2 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .photo-list-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .photo-list {
+      display: grid;
+      gap: 10px;
+      padding-bottom: 12px;
+    }
+
+    .photo-card {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 11px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(22, 33, 31, 0.04);
+    }
+
+    .photo-thumb-button {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      overflow: hidden;
+      border-radius: 7px;
+      background: #dfe5df;
+    }
+
+    .photo-thumb-button img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-thumb-button .gps-state {
+      position: absolute;
+      right: 5px;
+      bottom: 5px;
+      min-width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(15, 107, 84, 0.92);
+      color: #fff;
+    }
+
+    .photo-thumb-button .gps-state.missing {
+      background: rgba(217, 93, 57, 0.94);
+    }
+
+    .photo-card-fields {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .photo-card .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+      gap: 7px;
+    }
+
+    .photo-card input {
+      min-width: 0;
+      height: 34px;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfb;
+      color: var(--ink);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .photo-meta {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .photo-meta span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mini-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-actions .btn {
+      min-height: 30px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .map-wrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #e7ece6;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #map.leaflet-container,
+    .leaflet-container {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #e7ece6;
+      outline: 0;
+    }
+
+    .leaflet-pane,
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow,
+    .leaflet-tile-container,
+    .leaflet-pane > svg,
+    .leaflet-pane > canvas,
+    .leaflet-zoom-box,
+    .leaflet-image-layer,
+    .leaflet-layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .leaflet-tile {
+      width: 256px;
+      height: 256px;
+      max-width: none !important;
+      max-height: none !important;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .leaflet-map-pane,
+    .leaflet-tile-pane,
+    .leaflet-overlay-pane,
+    .leaflet-shadow-pane,
+    .leaflet-marker-pane,
+    .leaflet-tooltip-pane,
+    .leaflet-popup-pane {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 200;
+    }
+
+    .leaflet-tile-pane {
+      z-index: 200;
+    }
+
+    .leaflet-overlay-pane {
+      z-index: 400;
+    }
+
+    .leaflet-marker-pane {
+      z-index: 600;
+    }
+
+    .leaflet-tooltip-pane {
+      z-index: 650;
+    }
+
+    .leaflet-popup-pane {
+      z-index: 700;
+    }
+
+    .leaflet-control-container .leaflet-top,
+    .leaflet-control-container .leaflet-bottom {
+      position: absolute;
+      z-index: 900;
+      pointer-events: none;
+    }
+
+    .leaflet-top {
+      top: 0;
+    }
+
+    .leaflet-right {
+      right: 0;
+    }
+
+    .leaflet-bottom {
+      bottom: 0;
+    }
+
+    .leaflet-control {
+      position: relative;
+      z-index: 900;
+      pointer-events: auto;
+    }
+
+    .leaflet-right .leaflet-control {
+      margin-right: 12px;
+    }
+
+    .leaflet-bottom .leaflet-control {
+      margin-bottom: 12px;
+    }
+
+    .map-fallback {
+      display: grid;
+      gap: 10px;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      padding: 22px;
+      background:
+        linear-gradient(90deg, rgba(15, 107, 84, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(51, 107, 135, 0.08) 1px, transparent 1px),
+        #eef2ed;
+      background-size: 42px 42px;
+      color: var(--ink);
+      text-align: center;
+    }
+
+    .map-fallback strong {
+      font-size: 18px;
+    }
+
+    .map-fallback span {
+      max-width: 390px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .map-bar {
+      position: absolute;
+      z-index: 450;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .map-chip-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .map-chip,
+    .map-bar .btn {
+      pointer-events: auto;
+    }
+
+    .map-chip {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      min-height: 36px;
+      max-width: min(520px, 80vw);
+      padding: 8px 10px;
+      border: 1px solid rgba(198, 209, 201, 0.82);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 8px 22px rgba(22, 33, 31, 0.12);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+      backdrop-filter: blur(12px);
+    }
+
+    .pin-cluster {
+      position: relative;
+      display: block;
+      width: 58px;
+      height: 58px;
+      overflow: visible;
+      border: 3px solid #fff;
+      border-radius: 8px;
+      background: #dfe5df;
+      box-shadow: 0 12px 28px rgba(22, 33, 31, 0.28);
+      transform: translate(-8px, -8px);
+    }
+
+    .pin-cluster::after {
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      width: 15px;
+      height: 15px;
+      border-right: 3px solid #fff;
+      border-bottom: 3px solid #fff;
+      background: inherit;
+      content: "";
+      transform: translateX(-50%) rotate(45deg);
+    }
+
+    .pin-cluster img {
+      width: 100%;
+      height: 100%;
+      border-radius: 5px;
+      object-fit: cover;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pin-count {
+      position: absolute;
+      top: -9px;
+      right: -9px;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 6px;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      background: var(--coral);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .pin-category {
+      position: absolute;
+      left: 50%;
+      bottom: -31px;
+      z-index: 3;
+      max-width: 118px;
+      padding: 4px 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(22, 33, 31, 0.82);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transform: translateX(-50%);
+    }
+
+    .empty-state {
+      display: grid;
+      gap: 8px;
+      place-items: center;
+      min-height: 170px;
+      padding: 22px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      text-align: center;
+    }
+
+    .empty-state svg {
+      color: var(--green);
+    }
+
+    .empty-state strong {
+      font-size: 15px;
+    }
+
+    .empty-state span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    dialog {
+      width: min(980px, calc(100vw - 28px));
+      max-height: min(850px, calc(100dvh - 28px));
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      background: rgba(7, 18, 16, 0.58);
+      backdrop-filter: blur(4px);
+    }
+
+    .dialog-head {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .dialog-head h3 {
+      margin: 0;
+      overflow: hidden;
+      font-size: 16px;
+      letter-spacing: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dialog-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dialog-body {
+      overflow: auto;
+      max-height: calc(min(850px, 100dvh - 28px) - 61px);
+      padding: 14px;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+    }
+
+    .gallery-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .gallery-card button {
+      width: 100%;
+      height: 170px;
+      padding: 0;
+      background: #dde5df;
+    }
+
+    .gallery-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-card div {
+      display: grid;
+      gap: 4px;
+      padding: 9px;
+    }
+
+    .gallery-card b {
+      overflow: hidden;
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gallery-card span {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lightbox {
+      width: min(1180px, calc(100vw - 20px));
+      background: #08100e;
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .lightbox .dialog-head {
+      border-color: rgba(255, 255, 255, 0.11);
+      background: #08100e;
+      color: #fff;
+    }
+
+    .lightbox .dialog-head span {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .lightbox .dialog-body {
+      display: grid;
+      gap: 12px;
+      place-items: center;
+      background: #08100e;
+    }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: calc(100dvh - 180px);
+      border-radius: 6px;
+      object-fit: contain;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    }
+
+    .lightbox-meta {
+      width: min(760px, 100%);
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .location-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 2000;
+      display: none;
+      width: min(360px, calc(100vw - 36px));
+      padding: 12px 13px;
+      border: 1px solid rgba(15, 107, 84, 0.25);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: var(--shadow);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .toast.is-visible {
+      display: block;
+      animation: toast-in 0.18s ease-out;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(330px, 56dvh) minmax(290px, 44dvh);
+        min-height: 100dvh;
+      }
+
+      .map-wrap {
+        order: 1;
+      }
+
+      .side-panel {
+        order: 2;
+        border-top: 1px solid var(--line);
+        border-right: 0;
+        box-shadow: 0 -10px 28px rgba(20, 31, 29, 0.12);
+      }
+
+      .brand {
+        padding: 12px 14px 10px;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+      }
+
+      .brand h1 {
+        font-size: 19px;
+      }
+
+      .brand p {
+        display: none;
+      }
+
+      .panel-scroll {
+        padding: 12px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .upload-zone {
+        min-height: 118px;
+        padding: 12px;
+      }
+
+      .map-bar {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+      }
+
+      .map-chip {
+        max-width: calc(100vw - 118px);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app-shell {
+        grid-template-rows: minmax(300px, 54dvh) minmax(310px, 46dvh);
+      }
+
+      .map-chip {
+        min-height: 33px;
+        padding: 7px 8px;
+        font-size: 12px;
+      }
+
+      .map-chip .optional {
+        display: none;
+      }
+
+      .btn {
+        min-height: 36px;
+        padding: 8px 9px;
+        font-size: 12px;
+      }
+
+      .photo-card {
+        grid-template-columns: 78px minmax(0, 1fr);
+      }
+
+      .photo-thumb-button {
+        width: 78px;
+        height: 78px;
+      }
+
+      .photo-card .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+      }
+
+      .gallery-card button {
+        height: 138px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="side-panel">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>旅跡相簿</h1>
+          <p>照片、地點、類別與足跡都留在這台瀏覽器。</p>
+        </div>
+      </header>
+
+      <div class="panel-scroll">
+        <section class="upload-zone" id="dropZone">
+          <input id="photoInput" type="file" accept="image/*" multiple hidden />
+          <div class="upload-icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 16V4" />
+              <path d="m7 9 5-5 5 5" />
+              <path d="M20 16.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2.5" />
+            </svg>
+          </div>
+          <div>
+            <strong>加入照片</strong>
+            <span>支援多張上傳，會自動讀取照片內的 GPS。</span>
+          </div>
+          <div class="action-row" style="justify-content:center">
+            <button class="btn primary" id="choosePhotosBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="8.5" cy="10.5" r="1.5" />
+                <path d="m21 15-5-5L5 21" />
+              </svg>
+              選擇照片
+            </button>
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="統計">
+          <div class="stat"><b id="statPhotos">0</b><span>照片</span></div>
+          <div class="stat"><b id="statPlaces">0</b><span>地點</span></div>
+          <div class="stat"><b id="statCategories">0</b><span>類別</span></div>
+          <div class="stat"><b id="statMissing">0</b><span>待定位</span></div>
+        </section>
+
+        <section class="control-block">
+          <div class="field">
+            <label for="searchInput">搜尋</label>
+            <input id="searchInput" type="search" placeholder="照片名稱、類別、備註" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="categoryFilter">類別</label>
+            <select id="categoryFilter"></select>
+            <datalist id="categorySuggestions"></datalist>
+          </div>
+          <div class="field">
+            <label for="groupRadius">同地點距離</label>
+            <div class="range-row">
+              <input id="groupRadius" type="range" min="5" max="150" step="5" value="35" />
+              <span class="inline-label"><span id="radiusValue">35</span> m</span>
+            </div>
+          </div>
+          <div class="toolbar-row">
+            <label class="switch" title="依拍攝時間把照片連成路線">
+              <input id="routeToggle" type="checkbox" checked />
+              足跡路線
+            </label>
+          </div>
+          <div class="toolbar-row">
+            <button class="btn" id="fitMapBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+                <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+              全部顯示
+            </button>
+            <button class="btn" id="locateBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v3" />
+                <path d="M12 19v3" />
+                <path d="M2 12h3" />
+                <path d="M19 12h3" />
+              </svg>
+              定位我
+            </button>
+          </div>
+          <div class="toolbar-row">
+            <button class="btn" id="exportBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              備份
+            </button>
+            <button class="btn" id="importBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 21V9" />
+                <path d="m17 14-5-5-5 5" />
+                <path d="M5 3h14" />
+              </svg>
+              匯入
+            </button>
+            <button class="btn primary" id="shareBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <path d="m8.6 10.5 6.8-4" />
+                <path d="m8.6 13.5 6.8 4" />
+              </svg>
+              分享
+            </button>
+            <input id="importInput" type="file" accept="application/json" hidden />
+          </div>
+        </section>
+
+        <div class="photo-list-head">
+          <h2>照片</h2>
+          <span id="listCount">0 張</span>
+        </div>
+        <section class="photo-list" id="photoList"></section>
+      </div>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map" aria-label="OpenStreetMap 地圖"></div>
+      <div class="map-bar">
+        <div class="map-chip-row">
+          <div class="map-chip" id="mapStatus">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span>等待照片</span>
+            <span class="optional">OpenStreetMap</span>
+          </div>
+        </div>
+        <button class="btn icon-only" id="mapZoomHomeBtn" type="button" title="回到照片範圍">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="m3 9 9-7 9 7" />
+            <path d="M9 22V12h6v10" />
+            <path d="M5 10v12h14V10" />
+          </svg>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="galleryDialog">
+    <div class="dialog-head">
+      <div>
+        <h3 id="galleryTitle">地點照片</h3>
+        <span id="galleryMeta"></span>
+      </div>
+      <button class="btn icon-only" type="button" data-close-dialog="galleryDialog" title="關閉">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+  </dialog>
+
+  <dialog class="lightbox" id="lightboxDialog">
+    <div class="dialog-head">
+      <div>
+        <h3 id="lightboxTitle">照片</h3>
+        <span id="lightboxSubtitle"></span>
+      </div>
+      <button class="btn icon-only" type="button" data-close-dialog="lightboxDialog" title="關閉">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <img id="lightboxImage" alt="" />
+      <div class="lightbox-meta" id="lightboxMeta"></div>
+    </div>
+  </dialog>
+
+  <dialog id="locationDialog">
+    <form class="location-form" id="locationForm" method="dialog">
+      <div class="dialog-head">
+        <div>
+          <h3 id="locationTitle">補定位</h3>
+          <span>可輸入座標，或用目前地圖中心。</span>
+        </div>
+        <button class="btn icon-only" type="button" data-close-dialog="locationDialog" title="關閉">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="latInput">緯度</label>
+            <input id="latInput" type="number" min="-90" max="90" step="0.000001" required />
+          </div>
+          <div class="field">
+            <label for="lngInput">經度</label>
+            <input id="lngInput" type="number" min="-180" max="180" step="0.000001" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="notesInput">備註</label>
+          <textarea id="notesInput" placeholder="店名、旅伴、當天心情"></textarea>
+        </div>
+        <div class="toolbar-row">
+          <button class="btn" id="useMapCenterBtn" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 2v4" />
+              <path d="M12 18v4" />
+              <path d="M2 12h4" />
+              <path d="M18 12h4" />
+              <circle cx="12" cy="12" r="4" />
+            </svg>
+            地圖中心
+          </button>
+          <button class="btn" id="pickOnMapBtn" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 22s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z" />
+              <circle cx="12" cy="10" r="2" />
+            </svg>
+            在地圖選點
+          </button>
+          <button class="btn primary" id="saveLocationBtn" value="save" type="submit">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            儲存
+          </button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+  <script>
+    const DB_NAME = "life-footprints-photo-map";
+    const DB_VERSION = 1;
+    const STORE = "photos";
+
+    const els = {
+      photoInput: document.querySelector("#photoInput"),
+      choosePhotosBtn: document.querySelector("#choosePhotosBtn"),
+      dropZone: document.querySelector("#dropZone"),
+      photoList: document.querySelector("#photoList"),
+      searchInput: document.querySelector("#searchInput"),
+      categoryFilter: document.querySelector("#categoryFilter"),
+      categorySuggestions: document.querySelector("#categorySuggestions"),
+      groupRadius: document.querySelector("#groupRadius"),
+      radiusValue: document.querySelector("#radiusValue"),
+      routeToggle: document.querySelector("#routeToggle"),
+      fitMapBtn: document.querySelector("#fitMapBtn"),
+      locateBtn: document.querySelector("#locateBtn"),
+      mapZoomHomeBtn: document.querySelector("#mapZoomHomeBtn"),
+      exportBtn: document.querySelector("#exportBtn"),
+      importBtn: document.querySelector("#importBtn"),
+      shareBtn: document.querySelector("#shareBtn"),
+      importInput: document.querySelector("#importInput"),
+      mapStatus: document.querySelector("#mapStatus span"),
+      statPhotos: document.querySelector("#statPhotos"),
+      statPlaces: document.querySelector("#statPlaces"),
+      statCategories: document.querySelector("#statCategories"),
+      statMissing: document.querySelector("#statMissing"),
+      listCount: document.querySelector("#listCount"),
+      galleryDialog: document.querySelector("#galleryDialog"),
+      galleryTitle: document.querySelector("#galleryTitle"),
+      galleryMeta: document.querySelector("#galleryMeta"),
+      galleryGrid: document.querySelector("#galleryGrid"),
+      lightboxDialog: document.querySelector("#lightboxDialog"),
+      lightboxTitle: document.querySelector("#lightboxTitle"),
+      lightboxSubtitle: document.querySelector("#lightboxSubtitle"),
+      lightboxImage: document.querySelector("#lightboxImage"),
+      lightboxMeta: document.querySelector("#lightboxMeta"),
+      locationDialog: document.querySelector("#locationDialog"),
+      locationForm: document.querySelector("#locationForm"),
+      locationTitle: document.querySelector("#locationTitle"),
+      latInput: document.querySelector("#latInput"),
+      lngInput: document.querySelector("#lngInput"),
+      notesInput: document.querySelector("#notesInput"),
+      useMapCenterBtn: document.querySelector("#useMapCenterBtn"),
+      pickOnMapBtn: document.querySelector("#pickOnMapBtn"),
+      toast: document.querySelector("#toast")
+    };
+
+    const state = {
+      db: null,
+      photos: [],
+      filteredPhotos: [],
+      groups: [],
+      activeLocationPhotoId: null,
+      pickMode: false,
+      firstFitDone: false
+    };
+
+    let map = null;
+    let markerLayer = null;
+    let routeLayer = null;
+
+    if (window.L) {
+      map = L.map("map", {
+        zoomControl: false,
+        worldCopyJump: true,
+        trackResize: true
+      }).setView([23.6978, 120.9605], 7);
+
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        detectRetina: true,
+        keepBuffer: 5,
+        maxZoom: 19,
+        updateWhenIdle: false,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+
+      markerLayer = L.layerGroup().addTo(map);
+      routeLayer = L.layerGroup().addTo(map);
+    } else {
+      document.querySelector("#map").innerHTML = `
+        <div class="map-fallback">
+          <strong>地圖尚未載入</strong>
+          <span>請確認網路可連到 Leaflet CDN 與 OpenStreetMap。照片仍可加入與整理，重新整理後會顯示地圖。</span>
+        </div>
+      `;
+    }
+
+    init();
+
+    async function init() {
+      state.db = await openDb();
+      state.photos = await getAllPhotos();
+      wireEvents();
+      render();
+      scheduleMapRefresh();
+    }
+
+    function scheduleMapRefresh(delays = [0, 80, 220, 520, 1100]) {
+      if (!map) return;
+      const refresh = () => {
+        if (!map) return;
+        map.invalidateSize({ pan: false, debounceMoveend: false });
+      };
+      requestAnimationFrame(refresh);
+      for (const delay of delays) {
+        if (delay > 0) window.setTimeout(refresh, delay);
+      }
+    }
+
+    function wireEvents() {
+      els.choosePhotosBtn.addEventListener("click", () => els.photoInput.click());
+      els.photoInput.addEventListener("change", event => handleFiles(event.target.files));
+
+      ["dragenter", "dragover"].forEach(type => {
+        els.dropZone.addEventListener(type, event => {
+          event.preventDefault();
+          els.dropZone.classList.add("is-dragging");
+        });
+      });
+
+      ["dragleave", "drop"].forEach(type => {
+        els.dropZone.addEventListener(type, event => {
+          event.preventDefault();
+          els.dropZone.classList.remove("is-dragging");
+        });
+      });
+
+      els.dropZone.addEventListener("drop", event => handleFiles(event.dataTransfer.files));
+      els.searchInput.addEventListener("input", render);
+      els.categoryFilter.addEventListener("change", render);
+      els.routeToggle.addEventListener("change", renderMap);
+      els.groupRadius.addEventListener("input", () => {
+        els.radiusValue.textContent = els.groupRadius.value;
+        renderMap();
+      });
+
+      els.fitMapBtn.addEventListener("click", fitMapToPhotos);
+      els.mapZoomHomeBtn.addEventListener("click", fitMapToPhotos);
+      els.locateBtn.addEventListener("click", locateUser);
+      els.exportBtn.addEventListener("click", exportBackup);
+      els.importBtn.addEventListener("click", () => els.importInput.click());
+      els.shareBtn.addEventListener("click", exportSharePage);
+      els.importInput.addEventListener("change", importBackup);
+
+      if (map) {
+        const mapResizeObserver = new ResizeObserver(() => scheduleMapRefresh([0, 160, 420]));
+        mapResizeObserver.observe(document.querySelector(".map-wrap"));
+        window.addEventListener("load", () => scheduleMapRefresh());
+        window.addEventListener("resize", () => scheduleMapRefresh([0, 180, 500]));
+        window.addEventListener("orientationchange", () => scheduleMapRefresh([80, 320, 900]));
+        window.visualViewport?.addEventListener("resize", () => scheduleMapRefresh([0, 180, 500]));
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) scheduleMapRefresh([0, 180, 500]);
+        });
+      }
+
+      document.addEventListener("click", event => {
+        const closeId = event.target.closest("[data-close-dialog]")?.dataset.closeDialog;
+        if (closeId) document.querySelector("#" + closeId).close();
+      });
+
+      els.useMapCenterBtn.addEventListener("click", () => {
+        if (!map) {
+          showToast("地圖尚未載入，請直接輸入座標。");
+          return;
+        }
+        const center = map.getCenter();
+        els.latInput.value = center.lat.toFixed(6);
+        els.lngInput.value = center.lng.toFixed(6);
+      });
+
+      els.pickOnMapBtn.addEventListener("click", () => {
+        if (!map) {
+          showToast("地圖尚未載入，請直接輸入座標。");
+          return;
+        }
+        state.pickMode = true;
+        els.locationDialog.close();
+        map.getContainer().style.cursor = "crosshair";
+        showToast("在地圖上點一下，就會把座標填回照片。");
+      });
+
+      if (map) {
+        map.on("click", event => {
+          if (!state.pickMode || !state.activeLocationPhotoId) return;
+          state.pickMode = false;
+          map.getContainer().style.cursor = "";
+          openLocationEditor(state.activeLocationPhotoId, event.latlng);
+        });
+      }
+
+      els.locationForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        const photo = state.photos.find(item => item.id === state.activeLocationPhotoId);
+        if (!photo) return;
+        const lat = Number(els.latInput.value);
+        const lng = Number(els.lngInput.value);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          showToast("座標格式不正確。");
+          return;
+        }
+        photo.lat = lat;
+        photo.lng = lng;
+        photo.notes = els.notesInput.value.trim();
+        await savePhoto(photo);
+        els.locationDialog.close();
+        render();
+        focusPhotoOnMap(photo);
+        showToast("已更新定位。");
+      });
+
+      if (map) {
+        map.on("locationfound", event => {
+          L.circleMarker(event.latlng, {
+            radius: 7,
+            color: "#0f6b54",
+            weight: 3,
+            fillColor: "#ffffff",
+            fillOpacity: 1
+          }).addTo(map).bindPopup("目前位置").openPopup();
+        });
+
+        map.on("locationerror", () => {
+          showToast("無法取得目前位置，請確認瀏覽器定位權限。");
+        });
+      }
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            db.createObjectStore(STORE, { keyPath: "id" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function tx(mode = "readonly") {
+      return state.db.transaction(STORE, mode).objectStore(STORE);
+    }
+
+    function getAllPhotos() {
+      return new Promise((resolve, reject) => {
+        const request = tx().getAll();
+        request.onsuccess = () => {
+          const photos = request.result || [];
+          photos.sort(sortPhotos);
+          resolve(photos);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function savePhoto(photo) {
+      return new Promise((resolve, reject) => {
+        const request = tx("readwrite").put(photo);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function deletePhoto(id) {
+      return new Promise((resolve, reject) => {
+        const request = tx("readwrite").delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function handleFiles(fileList) {
+      const files = [...fileList].filter(file => file.type.startsWith("image/"));
+      if (!files.length) return;
+
+      let imported = 0;
+      let missingGps = 0;
+      showToast("正在讀取照片與 GPS...");
+
+      for (const file of files) {
+        try {
+          const photo = await buildPhotoRecord(file);
+          await savePhoto(photo);
+          state.photos.push(photo);
+          imported += 1;
+          if (!hasLocation(photo)) missingGps += 1;
+        } catch (error) {
+          console.error(error);
+          showToast("有一張照片無法處理：" + file.name);
+        }
+      }
+
+      state.photos.sort(sortPhotos);
+      els.photoInput.value = "";
+      render();
+      if (!state.firstFitDone) fitMapToPhotos();
+      showToast(`已加入 ${imported} 張照片${missingGps ? `，${missingGps} 張需要補定位` : ""}。`);
+    }
+
+    async function buildPhotoRecord(file) {
+      const [gps, exif, images] = await Promise.all([
+        readGps(file),
+        readExif(file),
+        makeImages(file)
+      ]);
+
+      const takenAt = normalizeDate(exif?.DateTimeOriginal || exif?.CreateDate || exif?.ModifyDate);
+      return {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2),
+        name: cleanName(file.name),
+        category: "未分類",
+        notes: "",
+        lat: gps?.latitude ?? null,
+        lng: gps?.longitude ?? null,
+        takenAt,
+        importedAt: new Date().toISOString(),
+        fileName: file.name,
+        fileSize: file.size,
+        thumbDataUrl: images.thumbDataUrl,
+        imageDataUrl: images.imageDataUrl
+      };
+    }
+
+    async function readGps(file) {
+      if (!window.exifr) return null;
+      try {
+        const gps = await exifr.gps(file);
+        if (!gps || !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude)) return null;
+        return gps;
+      } catch {
+        return null;
+      }
+    }
+
+    async function readExif(file) {
+      if (!window.exifr) return null;
+      try {
+        return await exifr.parse(file, {
+          pick: ["DateTimeOriginal", "CreateDate", "ModifyDate"]
+        });
+      } catch {
+        return null;
+      }
+    }
+
+    async function makeImages(file) {
+      const image = await decodeImage(file);
+      const imageDataUrl = drawImage(image, 2048, 0.86);
+      const thumbDataUrl = drawImage(image, 420, 0.78);
+      releaseImage(image);
+      return { imageDataUrl, thumbDataUrl };
+    }
+
+    async function decodeImage(file) {
+      if ("createImageBitmap" in window) {
+        try {
+          return await createImageBitmap(file, { imageOrientation: "from-image" });
+        } catch {
+          return loadImageElement(file);
+        }
+      }
+      return loadImageElement(file);
+    }
+
+    function loadImageElement(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Image decode failed"));
+        };
+        img.src = url;
+      });
+    }
+
+    function drawImage(image, maxSide, quality) {
+      const width = image.width || image.naturalWidth;
+      const height = image.height || image.naturalHeight;
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      const targetWidth = Math.max(1, Math.round(width * scale));
+      const targetHeight = Math.max(1, Math.round(height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+      return canvas.toDataURL("image/jpeg", quality);
+    }
+
+    function releaseImage(image) {
+      if (typeof image.close === "function") image.close();
+    }
+
+    function render() {
+      state.filteredPhotos = getFilteredPhotos();
+      renderFilters();
+      renderStats();
+      renderList();
+      renderMap();
+    }
+
+    function getFilteredPhotos() {
+      const query = els.searchInput.value.trim().toLowerCase();
+      const selectedCategory = els.categoryFilter.value;
+      return state.photos.filter(photo => {
+        const inCategory = !selectedCategory || photo.category === selectedCategory;
+        const haystack = [photo.name, photo.category, photo.notes, photo.fileName]
+          .join(" ")
+          .toLowerCase();
+        return inCategory && (!query || haystack.includes(query));
+      });
+    }
+
+    function renderFilters() {
+      const current = els.categoryFilter.value;
+      const categories = uniqueCategories(state.photos);
+      els.categoryFilter.innerHTML = "";
+      els.categorySuggestions.innerHTML = "";
+      els.categoryFilter.append(new Option("全部類別", ""));
+      for (const category of categories) {
+        els.categoryFilter.append(new Option(category, category));
+        els.categorySuggestions.append(new Option(category));
+      }
+      if (categories.includes(current)) els.categoryFilter.value = current;
+    }
+
+    function renderStats() {
+      const places = groupPhotos(state.photos.filter(hasLocation), Number(els.groupRadius.value));
+      const categories = uniqueCategories(state.photos);
+      const missing = state.photos.filter(photo => !hasLocation(photo)).length;
+      els.statPhotos.textContent = state.photos.length;
+      els.statPlaces.textContent = places.length;
+      els.statCategories.textContent = categories.length;
+      els.statMissing.textContent = missing;
+      els.listCount.textContent = `${state.filteredPhotos.length} 張`;
+    }
+
+    function renderList() {
+      if (!state.filteredPhotos.length) {
+        els.photoList.innerHTML = `
+          <div class="empty-state">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M4 5h16v14H4z" />
+              <path d="m4 15 4-4 4 4 3-3 5 5" />
+              <circle cx="8.5" cy="9.5" r="1.5" />
+            </svg>
+            <strong>還沒有照片</strong>
+            <span>加入有 GPS 的相片後，地圖上會出現你的足跡。</span>
+          </div>
+        `;
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const photo of state.filteredPhotos) {
+        frag.append(createPhotoCard(photo));
+      }
+      els.photoList.replaceChildren(frag);
+    }
+
+    function createPhotoCard(photo) {
+      const card = document.createElement("article");
+      card.className = "photo-card";
+
+      const thumb = document.createElement("button");
+      thumb.className = "photo-thumb-button";
+      thumb.type = "button";
+      thumb.title = "放大照片";
+      thumb.innerHTML = `
+        <img alt="${escapeHtml(photo.name)}" src="${photo.thumbDataUrl}">
+        <span class="gps-state ${hasLocation(photo) ? "" : "missing"}" title="${hasLocation(photo) ? "有定位" : "待定位"}">
+          ${hasLocation(photo) ? gpsIcon() : alertIcon()}
+        </span>
+      `;
+      thumb.addEventListener("click", () => openLightbox(photo));
+
+      const fields = document.createElement("div");
+      fields.className = "photo-card-fields";
+
+      const topFields = document.createElement("div");
+      topFields.className = "two-col";
+
+      const nameInput = document.createElement("input");
+      nameInput.value = photo.name;
+      nameInput.placeholder = "照片名稱";
+      nameInput.ariaLabel = "照片名稱";
+      nameInput.addEventListener("change", () => updatePhoto(photo.id, { name: nameInput.value.trim() || cleanName(photo.fileName) }));
+
+      const categoryInput = document.createElement("input");
+      categoryInput.value = photo.category;
+      categoryInput.placeholder = "類別";
+      categoryInput.setAttribute("list", "categorySuggestions");
+      categoryInput.ariaLabel = "類別";
+      categoryInput.addEventListener("change", () => updatePhoto(photo.id, { category: categoryInput.value.trim() || "未分類" }));
+
+      topFields.append(nameInput, categoryInput);
+
+      const meta = document.createElement("div");
+      meta.className = "photo-meta";
+      const locationText = hasLocation(photo)
+        ? `${Number(photo.lat).toFixed(5)}, ${Number(photo.lng).toFixed(5)}`
+        : "尚未定位";
+      meta.innerHTML = `<span>${formatDate(photo.takenAt) || "未讀到拍攝時間"}</span><span>${locationText}</span>`;
+
+      const actions = document.createElement("div");
+      actions.className = "mini-actions";
+
+      const locateBtn = button("地圖", locateIcon());
+      locateBtn.disabled = !hasLocation(photo);
+      locateBtn.addEventListener("click", () => focusPhotoOnMap(photo));
+
+      const editLocationBtn = button(hasLocation(photo) ? "調整" : "補定位", pinIcon());
+      editLocationBtn.addEventListener("click", () => openLocationEditor(photo.id));
+
+      const deleteBtn = button("刪除", trashIcon(), "danger");
+      deleteBtn.addEventListener("click", async () => {
+        if (!confirm(`刪除「${photo.name}」？`)) return;
+        await deletePhoto(photo.id);
+        state.photos = state.photos.filter(item => item.id !== photo.id);
+        render();
+        showToast("已刪除照片。");
+      });
+
+      actions.append(locateBtn, editLocationBtn, deleteBtn);
+      fields.append(topFields, meta, actions);
+      card.append(thumb, fields);
+      return card;
+    }
+
+    function renderMap() {
+      if (!map) {
+        const total = state.filteredPhotos.length;
+        const locatedCount = state.filteredPhotos.filter(hasLocation).length;
+        els.mapStatus.textContent = total
+          ? `${locatedCount}/${total} 張有定位`
+          : "等待照片";
+        return;
+      }
+
+      markerLayer.clearLayers();
+      routeLayer.clearLayers();
+
+      const located = state.filteredPhotos.filter(hasLocation);
+      state.groups = groupPhotos(located, Number(els.groupRadius.value));
+
+      for (const group of state.groups) {
+        const marker = L.marker([group.lat, group.lng], {
+          icon: L.divIcon({
+            className: "photo-pin-wrapper",
+            iconSize: [64, 76],
+            iconAnchor: [32, 66],
+            html: markerHtml(group)
+          })
+        });
+        marker.on("click", () => openGallery(group));
+        markerLayer.addLayer(marker);
+      }
+
+      if (els.routeToggle.checked) {
+        const routePoints = located
+          .slice()
+          .sort(sortPhotos)
+          .map(photo => [photo.lat, photo.lng]);
+        if (routePoints.length > 1) {
+          L.polyline(routePoints, {
+            color: "#d95d39",
+            weight: 4,
+            opacity: 0.76,
+            lineJoin: "round"
+          }).addTo(routeLayer);
+        }
+      }
+
+      const total = state.filteredPhotos.length;
+      const locatedCount = located.length;
+      els.mapStatus.textContent = total
+        ? `${locatedCount}/${total} 張有定位，${state.groups.length} 個地點`
+        : "等待照片";
+      scheduleMapRefresh([0, 180]);
+    }
+
+    function markerHtml(group) {
+      const cover = group.photos[0];
+      const category = commonCategory(group.photos);
+      return `
+        <span class="pin-cluster">
+          <img src="${cover.thumbDataUrl}" alt="">
+          ${group.photos.length > 1 ? `<span class="pin-count">${group.photos.length}</span>` : ""}
+          <span class="pin-category">${escapeHtml(category)}</span>
+        </span>
+      `;
+    }
+
+    function groupPhotos(photos, radiusMeters) {
+      const groups = [];
+      for (const photo of photos) {
+        let target = groups.find(group => distanceMeters(group.lat, group.lng, photo.lat, photo.lng) <= radiusMeters);
+        if (!target) {
+          target = { lat: photo.lat, lng: photo.lng, photos: [] };
+          groups.push(target);
+        }
+        target.photos.push(photo);
+        target.lat = target.photos.reduce((sum, item) => sum + item.lat, 0) / target.photos.length;
+        target.lng = target.photos.reduce((sum, item) => sum + item.lng, 0) / target.photos.length;
+      }
+      return groups;
+    }
+
+    function openGallery(group) {
+      const photos = group.photos.slice().sort(sortPhotos);
+      els.galleryTitle.textContent = commonCategory(photos);
+      els.galleryMeta.textContent = `${photos.length} 張 · ${group.lat.toFixed(5)}, ${group.lng.toFixed(5)}`;
+      els.galleryGrid.replaceChildren(...photos.map(photo => {
+        const card = document.createElement("article");
+        card.className = "gallery-card";
+        const imageButton = document.createElement("button");
+        imageButton.type = "button";
+        imageButton.innerHTML = `<img alt="${escapeHtml(photo.name)}" src="${photo.thumbDataUrl}">`;
+        imageButton.addEventListener("click", () => openLightbox(photo));
+        const text = document.createElement("div");
+        text.innerHTML = `<b>${escapeHtml(photo.name)}</b><span>${escapeHtml(photo.category)} · ${formatDate(photo.takenAt) || "未讀到時間"}</span>`;
+        card.append(imageButton, text);
+        return card;
+      }));
+      showDialog(els.galleryDialog);
+    }
+
+    function openLightbox(photo) {
+      els.lightboxTitle.textContent = photo.name;
+      els.lightboxSubtitle.textContent = `${photo.category} · ${formatDate(photo.takenAt) || "未讀到拍攝時間"}`;
+      els.lightboxImage.src = photo.imageDataUrl;
+      els.lightboxImage.alt = photo.name;
+      const location = hasLocation(photo)
+        ? `座標：${Number(photo.lat).toFixed(6)}, ${Number(photo.lng).toFixed(6)}`
+        : "尚未定位";
+      els.lightboxMeta.textContent = [location, photo.notes].filter(Boolean).join(" · ");
+      showDialog(els.lightboxDialog);
+    }
+
+    function openLocationEditor(photoId, latlng) {
+      const photo = state.photos.find(item => item.id === photoId);
+      if (!photo) return;
+      state.activeLocationPhotoId = photoId;
+      els.locationTitle.textContent = photo.name;
+      const center = map?.getCenter() ?? { lat: 23.6978, lng: 120.9605 };
+      els.latInput.value = (latlng?.lat ?? photo.lat ?? center.lat).toFixed(6);
+      els.lngInput.value = (latlng?.lng ?? photo.lng ?? center.lng).toFixed(6);
+      els.notesInput.value = photo.notes || "";
+      showDialog(els.locationDialog);
+    }
+
+    async function updatePhoto(id, changes) {
+      const photo = state.photos.find(item => item.id === id);
+      if (!photo) return;
+      Object.assign(photo, changes);
+      await savePhoto(photo);
+      state.photos.sort(sortPhotos);
+      render();
+    }
+
+    function focusPhotoOnMap(photo) {
+      if (!hasLocation(photo)) return;
+      if (!map) {
+        showToast("地圖尚未載入。");
+        return;
+      }
+      map.flyTo([photo.lat, photo.lng], Math.max(map.getZoom(), 15), { duration: 0.7 });
+      const group = state.groups.find(item => item.photos.some(groupPhoto => groupPhoto.id === photo.id));
+      if (group) openGallery(group);
+    }
+
+    function fitMapToPhotos() {
+      if (!map) {
+        showToast("地圖尚未載入。");
+        return;
+      }
+      const located = state.filteredPhotos.filter(hasLocation);
+      if (!located.length) {
+        map.setView([23.6978, 120.9605], 7);
+        showToast("目前沒有可顯示在地圖上的定位照片。");
+        return;
+      }
+      const bounds = L.latLngBounds(located.map(photo => [photo.lat, photo.lng]));
+      map.fitBounds(bounds.pad(0.22), { maxZoom: 15 });
+      state.firstFitDone = true;
+      scheduleMapRefresh([0, 180, 520]);
+    }
+
+    function locateUser() {
+      if (!map) {
+        showToast("地圖尚未載入。");
+        return;
+      }
+      map.locate({
+        setView: true,
+        maxZoom: 14,
+        enableHighAccuracy: true
+      });
+    }
+
+    function exportSharePage() {
+      const photos = (state.filteredPhotos.length ? state.filteredPhotos : state.photos)
+        .map(photo => ({
+          id: photo.id,
+          name: photo.name,
+          category: photo.category,
+          notes: photo.notes,
+          lat: photo.lat,
+          lng: photo.lng,
+          takenAt: photo.takenAt,
+          thumbDataUrl: photo.thumbDataUrl,
+          imageDataUrl: photo.imageDataUrl
+        }));
+
+      if (!photos.length) {
+        showToast("目前沒有可分享的照片。");
+        return;
+      }
+
+      const defaultTitle = "我的旅遊足跡";
+      const title = (prompt("分享相簿名稱", defaultTitle) || defaultTitle).trim() || defaultTitle;
+      const payload = {
+        title,
+        exportedAt: new Date().toISOString(),
+        groupRadius: Number(els.groupRadius.value),
+        routeEnabled: els.routeToggle.checked,
+        photos
+      };
+      const html = buildShareHtml(payload);
+      const fileDate = new Date().toISOString().slice(0, 10);
+      downloadBlob(html, `life-footprints-share-${fileDate}.html`, "text/html;charset=utf-8");
+      showToast("已下載分享成果 HTML。可直接傳給朋友，或上傳到 Netlify Drop 變成網址。");
+    }
+
+    function buildShareHtml(payload) {
+      const safeData = JSON.stringify(payload)
+        .replace(/&/g, "\\u0026")
+        .replace(/</g, "\\u003c")
+        .replace(/>/g, "\\u003e");
+
+      return `<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(payload.title)}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --bg: #f7f7f2;
+      --panel: #ffffff;
+      --ink: #16211f;
+      --muted: #67736f;
+      --line: #dfe5df;
+      --green: #0f6b54;
+      --coral: #d95d39;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); }
+    button { font: inherit; border: 0; cursor: pointer; }
+    .share-shell { display: grid; grid-template-columns: minmax(310px, 380px) minmax(0, 1fr); width: 100vw; height: 100dvh; }
+    .side { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--panel); }
+    .brand { padding: 18px; border-bottom: 1px solid var(--line); }
+    .brand h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    .brand p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .stat { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+    .stat b { display: block; font-size: 19px; }
+    .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .list { display: grid; gap: 10px; min-height: 0; overflow: auto; padding: 12px 14px 18px; }
+    .card { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .thumb { width: 82px; height: 82px; overflow: hidden; border-radius: 7px; background: #dfe5df; }
+    .thumb img, .gallery-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card h2 { margin: 2px 0 4px; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+    .card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .map-wrap { position: relative; min-width: 0; min-height: 0; background: #e7ece6; }
+    #map, #map.leaflet-container, .leaflet-container { width: 100%; height: 100%; overflow: hidden; background: #e7ece6; outline: 0; }
+    .leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas, .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer { position: absolute; left: 0; top: 0; }
+    .leaflet-tile { width: 256px; height: 256px; max-width: none !important; max-height: none !important; user-select: none; -webkit-user-drag: none; }
+    .leaflet-control-container .leaflet-top, .leaflet-control-container .leaflet-bottom { position: absolute; z-index: 900; pointer-events: none; }
+    .leaflet-top { top: 0; } .leaflet-right { right: 0; } .leaflet-bottom { bottom: 0; } .leaflet-control { position: relative; z-index: 900; pointer-events: auto; }
+    .leaflet-right .leaflet-control { margin-right: 12px; } .leaflet-bottom .leaflet-control { margin-bottom: 12px; }
+    .map-status { position: absolute; z-index: 500; top: 14px; left: 14px; max-width: min(460px, calc(100vw - 28px)); padding: 9px 11px; border: 1px solid rgba(198, 209, 201, 0.82); border-radius: 8px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 8px 22px rgba(22, 33, 31, 0.12); font-size: 13px; font-weight: 700; }
+    .fallback { display: grid; gap: 10px; place-items: center; width: 100%; height: 100%; padding: 22px; background: linear-gradient(90deg, rgba(15, 107, 84, 0.08) 1px, transparent 1px), linear-gradient(0deg, rgba(51, 107, 135, 0.08) 1px, transparent 1px), #eef2ed; background-size: 42px 42px; text-align: center; }
+    .fallback span { max-width: 390px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .pin-cluster { position: relative; display: block; width: 58px; height: 58px; overflow: visible; border: 3px solid #fff; border-radius: 8px; background: #dfe5df; box-shadow: 0 12px 28px rgba(22, 33, 31, 0.28); transform: translate(-8px, -8px); }
+    .pin-cluster img { width: 100%; height: 100%; border-radius: 5px; object-fit: cover; display: block; }
+    .pin-count { position: absolute; top: -9px; right: -9px; display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; border: 2px solid #fff; border-radius: 999px; background: var(--coral); color: #fff; font-size: 12px; font-weight: 800; }
+    dialog { width: min(980px, calc(100vw - 28px)); max-height: min(850px, calc(100dvh - 28px)); padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 16px 45px rgba(18, 33, 31, 0.15); }
+    dialog::backdrop { background: rgba(7, 18, 16, 0.58); backdrop-filter: blur(4px); }
+    .dialog-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+    .dialog-head h3 { margin: 0; overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+    .close { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .dialog-body { overflow: auto; max-height: calc(min(850px, 100dvh - 28px) - 61px); padding: 14px; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .gallery-card { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .gallery-card button { width: 100%; height: 150px; padding: 0; background: #dde5df; }
+    .gallery-card div { padding: 8px; }
+    .gallery-card b, .gallery-card span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gallery-card b { font-size: 13px; } .gallery-card span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .lightbox { background: #08100e; color: #fff; border-color: rgba(255,255,255,.15); }
+    .lightbox .dialog-head { border-color: rgba(255,255,255,.12); }
+    .lightbox .close { color: #fff; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.08); }
+    .lightbox .dialog-body { display: grid; gap: 12px; place-items: center; background: #08100e; }
+    .lightbox img { max-width: 100%; max-height: calc(100dvh - 180px); border-radius: 6px; object-fit: contain; }
+    .lightbox-meta { color: rgba(255,255,255,.78); font-size: 13px; text-align: center; }
+    @media (max-width: 860px) {
+      html, body { overflow: auto; }
+      .share-shell { grid-template-columns: 1fr; grid-template-rows: minmax(330px, 55dvh) auto; height: auto; min-height: 100dvh; }
+      .map-wrap { order: 1; height: 55dvh; }
+      .side { order: 2; border-top: 1px solid var(--line); border-right: 0; }
+      .list { max-height: none; overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="share-shell">
+    <aside class="side">
+      <header class="brand">
+        <h1 id="shareTitle"></h1>
+        <p id="shareSubtitle"></p>
+      </header>
+      <section class="stats">
+        <div class="stat"><b id="photoCount">0</b><span>照片</span></div>
+        <div class="stat"><b id="placeCount">0</b><span>地點</span></div>
+        <div class="stat"><b id="categoryCount">0</b><span>類別</span></div>
+      </section>
+      <section class="list" id="photoList"></section>
+    </aside>
+    <main class="map-wrap">
+      <div id="map"></div>
+      <div class="map-status" id="mapStatus">載入地圖</div>
+    </main>
+  </div>
+  <dialog id="galleryDialog">
+    <div class="dialog-head"><h3 id="galleryTitle">地點照片</h3><button class="close" data-close="galleryDialog">X</button></div>
+    <div class="dialog-body"><div class="gallery" id="galleryGrid"></div></div>
+  </dialog>
+  <dialog class="lightbox" id="lightboxDialog">
+    <div class="dialog-head"><h3 id="lightboxTitle">照片</h3><button class="close" data-close="lightboxDialog">X</button></div>
+    <div class="dialog-body"><img id="lightboxImage" alt=""><div class="lightbox-meta" id="lightboxMeta"></div></div>
+  </dialog>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""><\/script>
+  <script>
+    window.SHARE_DATA = ${safeData};
+  <\/script>
+  <script>
+    const data = window.SHARE_DATA;
+    const photos = Array.isArray(data.photos) ? data.photos : [];
+    const located = photos.filter(hasLocation);
+    let map = null;
+    let groups = [];
+
+    document.getElementById("shareTitle").textContent = data.title || "我的旅遊足跡";
+    document.getElementById("shareSubtitle").textContent = "匯出時間：" + formatDate(data.exportedAt);
+    document.getElementById("photoCount").textContent = photos.length;
+    document.getElementById("placeCount").textContent = groupPhotos(located, data.groupRadius || 35).length;
+    document.getElementById("categoryCount").textContent = uniqueCategories(photos).length;
+    renderList();
+
+    if (window.L) {
+      map = L.map("map", { zoomControl: false, worldCopyJump: true, trackResize: true }).setView([23.6978, 120.9605], 7);
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        detectRetina: true,
+        keepBuffer: 5,
+        maxZoom: 19,
+        updateWhenIdle: false,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+      renderMap();
+      scheduleMapRefresh();
+      window.addEventListener("load", scheduleMapRefresh);
+      window.addEventListener("resize", function () { scheduleMapRefresh([0, 180, 500]); });
+      window.visualViewport?.addEventListener("resize", function () { scheduleMapRefresh([0, 180, 500]); });
+    } else {
+      document.getElementById("map").innerHTML = '<div class="fallback"><strong>地圖尚未載入</strong><span>請確認網路可連到 Leaflet CDN 與 OpenStreetMap。照片仍可在左側瀏覽。</span></div>';
+      document.getElementById("mapStatus").textContent = "地圖尚未載入";
+    }
+
+    document.addEventListener("click", function (event) {
+      const id = event.target.closest("[data-close]")?.dataset.close;
+      if (id) document.getElementById(id).close();
+    });
+
+    function renderMap() {
+      groups = groupPhotos(located, data.groupRadius || 35);
+      document.getElementById("placeCount").textContent = groups.length;
+      const markerLayer = L.layerGroup().addTo(map);
+      groups.forEach(function (group) {
+        const marker = L.marker([group.lat, group.lng], {
+          icon: L.divIcon({
+            className: "photo-pin-wrapper",
+            iconSize: [64, 76],
+            iconAnchor: [32, 66],
+            html: markerHtml(group)
+          })
+        });
+        marker.on("click", function () { openGallery(group.photos); });
+        markerLayer.addLayer(marker);
+      });
+      if (data.routeEnabled && located.length > 1) {
+        L.polyline(located.slice().sort(sortPhotos).map(function (photo) { return [photo.lat, photo.lng]; }), {
+          color: "#d95d39",
+          weight: 4,
+          opacity: 0.76,
+          lineJoin: "round"
+        }).addTo(map);
+      }
+      document.getElementById("mapStatus").textContent = located.length + "/" + photos.length + " 張有定位，" + groups.length + " 個地點";
+      if (located.length) {
+        map.fitBounds(L.latLngBounds(located.map(function (photo) { return [photo.lat, photo.lng]; })).pad(0.22), { maxZoom: 15 });
+      }
+    }
+
+    function renderList() {
+      const list = document.getElementById("photoList");
+      list.innerHTML = photos.map(function (photo) {
+        return '<article class="card"><button class="thumb" data-photo="' + escapeHtml(photo.id) + '"><img src="' + photo.thumbDataUrl + '" alt=""></button><div><h2>' + escapeHtml(photo.name) + '</h2><p>' + escapeHtml(photo.category || "未分類") + '</p><p>' + (hasLocation(photo) ? Number(photo.lat).toFixed(5) + ", " + Number(photo.lng).toFixed(5) : "尚未定位") + '</p></div></article>';
+      }).join("");
+      list.querySelectorAll("[data-photo]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          const photo = photos.find(function (item) { return item.id === button.dataset.photo; });
+          if (photo) openLightbox(photo);
+        });
+      });
+    }
+
+    function openGallery(groupPhotos) {
+      const sorted = groupPhotos.slice().sort(sortPhotos);
+      document.getElementById("galleryTitle").textContent = sorted.length + " 張地點照片";
+      const grid = document.getElementById("galleryGrid");
+      grid.innerHTML = sorted.map(function (photo) {
+        return '<article class="gallery-card"><button data-photo="' + escapeHtml(photo.id) + '"><img src="' + photo.thumbDataUrl + '" alt=""></button><div><b>' + escapeHtml(photo.name) + '</b><span>' + escapeHtml(photo.category || "未分類") + '</span></div></article>';
+      }).join("");
+      grid.querySelectorAll("[data-photo]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          const photo = photos.find(function (item) { return item.id === button.dataset.photo; });
+          if (photo) openLightbox(photo);
+        });
+      });
+      document.getElementById("galleryDialog").showModal();
+    }
+
+    function openLightbox(photo) {
+      document.getElementById("lightboxTitle").textContent = photo.name;
+      document.getElementById("lightboxImage").src = photo.imageDataUrl;
+      document.getElementById("lightboxImage").alt = photo.name;
+      const location = hasLocation(photo) ? "座標：" + Number(photo.lat).toFixed(6) + ", " + Number(photo.lng).toFixed(6) : "尚未定位";
+      document.getElementById("lightboxMeta").textContent = [photo.category, formatDate(photo.takenAt), location, photo.notes].filter(Boolean).join(" · ");
+      document.getElementById("lightboxDialog").showModal();
+    }
+
+    function markerHtml(group) {
+      const cover = group.photos[0];
+      return '<span class="pin-cluster"><img src="' + cover.thumbDataUrl + '" alt="">' + (group.photos.length > 1 ? '<span class="pin-count">' + group.photos.length + '</span>' : '') + '</span>';
+    }
+
+    function groupPhotos(items, radiusMeters) {
+      const result = [];
+      items.forEach(function (photo) {
+        let target = result.find(function (group) { return distanceMeters(group.lat, group.lng, photo.lat, photo.lng) <= radiusMeters; });
+        if (!target) {
+          target = { lat: photo.lat, lng: photo.lng, photos: [] };
+          result.push(target);
+        }
+        target.photos.push(photo);
+        target.lat = target.photos.reduce(function (sum, item) { return sum + item.lat; }, 0) / target.photos.length;
+        target.lng = target.photos.reduce(function (sum, item) { return sum + item.lng; }, 0) / target.photos.length;
+      });
+      return result;
+    }
+
+    function scheduleMapRefresh(delays) {
+      if (!map) return;
+      const plan = delays || [0, 80, 220, 520, 1100];
+      const refresh = function () { map.invalidateSize({ pan: false, debounceMoveend: false }); };
+      requestAnimationFrame(refresh);
+      plan.forEach(function (delay) {
+        if (delay > 0) window.setTimeout(refresh, delay);
+      });
+    }
+
+    function hasLocation(photo) { return Number.isFinite(photo.lat) && Number.isFinite(photo.lng); }
+    function uniqueCategories(items) { return Array.from(new Set(items.map(function (photo) { return photo.category || "未分類"; }))); }
+    function sortPhotos(a, b) { return String(b.takenAt || "").localeCompare(String(a.takenAt || "")); }
+    function formatDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-Hant", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
+    }
+    function distanceMeters(lat1, lng1, lat2, lng2) {
+      const radius = 6371000;
+      const toRad = function (value) { return value * Math.PI / 180; };
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return 2 * radius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  <\/script>
+</body>
+</html>`;
+    }
+
+    function downloadBlob(content, fileName, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportBackup() {
+      if (!state.photos.length) {
+        showToast("目前沒有照片可備份。");
+        return;
+      }
+      const payload = {
+        app: "旅跡相簿",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        photos: state.photos
+      };
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `life-footprints-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function importBackup(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const payload = JSON.parse(text);
+        const photos = Array.isArray(payload.photos) ? payload.photos : [];
+        if (!photos.length) throw new Error("No photos");
+        let count = 0;
+        for (const photo of photos) {
+          if (!photo.id) photo.id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+          await savePhoto(photo);
+          count += 1;
+        }
+        state.photos = await getAllPhotos();
+        render();
+        fitMapToPhotos();
+        showToast(`已匯入 ${count} 張照片。`);
+      } catch (error) {
+        console.error(error);
+        showToast("匯入失敗，請確認檔案格式。");
+      } finally {
+        els.importInput.value = "";
+      }
+    }
+
+    function showDialog(dialog) {
+      if (typeof dialog.showModal === "function") {
+        if (!dialog.open) dialog.showModal();
+      } else {
+        dialog.setAttribute("open", "");
+      }
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("is-visible");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => els.toast.classList.remove("is-visible"), 3400);
+    }
+
+    function uniqueCategories(photos) {
+      return [...new Set(photos.map(photo => photo.category || "未分類"))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
+    }
+
+    function commonCategory(photos) {
+      const counts = new Map();
+      for (const photo of photos) counts.set(photo.category, (counts.get(photo.category) || 0) + 1);
+      return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "未分類";
+    }
+
+    function hasLocation(photo) {
+      return Number.isFinite(photo.lat) && Number.isFinite(photo.lng);
+    }
+
+    function cleanName(fileName) {
+      return fileName.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "未命名照片";
+    }
+
+    function normalizeDate(value) {
+      if (!value) return "";
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-Hant", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date);
+    }
+
+    function sortPhotos(a, b) {
+      const aDate = a.takenAt || a.importedAt || "";
+      const bDate = b.takenAt || b.importedAt || "";
+      return bDate.localeCompare(aDate);
+    }
+
+    function distanceMeters(lat1, lng1, lat2, lng2) {
+      const radius = 6371000;
+      const toRad = value => (value * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return 2 * radius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function button(label, icon, className = "") {
+      const el = document.createElement("button");
+      el.className = `btn ${className}`.trim();
+      el.type = "button";
+      el.innerHTML = icon + `<span>${label}</span>`;
+      return el;
+    }
+
+    function gpsIcon() {
+      return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="10" r="2"/></svg>`;
+    }
+
+    function alertIcon() {
+      return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+    }
+
+    function locateIcon() {
+      return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+    }
+
+    function pinIcon() {
+      return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="10" r="2"/></svg>`;
+    }
+
+    function trashIcon() {
+      return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>`;
+    }
+  </script>
+</body>
+</html>
